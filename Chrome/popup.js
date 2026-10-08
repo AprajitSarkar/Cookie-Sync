@@ -325,6 +325,18 @@ function setupEventHandlers() {
   // Clear All Emails
   document.getElementById('clear-emails-btn').addEventListener('click', handleClearAllEmails);
 
+  // Copy Active Detected Account Email
+  const copyActiveBtn = document.getElementById('btn-copy-active-email');
+  if (copyActiveBtn) {
+    copyActiveBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!detectedActiveEmail) return showToast('No account email detected yet!', true);
+      navigator.clipboard.writeText(detectedActiveEmail).then(() => {
+        showToast(`✓ Copied active email: ${detectedActiveEmail}!`);
+      });
+    });
+  }
+
   // Inspect Refresh
   document.getElementById('refresh-inspect-btn').addEventListener('click', async () => {
     await scanActiveCookies();
@@ -399,15 +411,43 @@ function updateEmailsBadge() {
 
 function formatRelativeTime(timestamp) {
   if (!timestamp) return 'Recently';
-  const diffSec = Math.floor((Date.now() - timestamp) / 1000);
-  if (diffSec < 60) return 'Just now';
+  const now = Date.now();
+  const diffSec = Math.max(0, Math.floor((now - timestamp) / 1000));
+
+  if (diffSec < 45) return 'Just now';
+
   const diffMin = Math.floor(diffSec / 60);
-  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffMin === 1) return '1 minute ago';
+  if (diffMin < 60) return `${diffMin} minutes ago`;
+
   const diffHour = Math.floor(diffMin / 60);
-  if (diffHour < 24) return `${diffHour}h ago`;
+  if (diffHour === 1) return '1 hour ago';
+  if (diffHour < 24) return `${diffHour} hours ago`;
+
   const diffDay = Math.floor(diffHour / 24);
-  if (diffDay < 7) return `${diffDay}d ago`;
-  return new Date(timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' });
+  if (diffDay === 1) return '1 day ago';
+  if (diffDay < 7) return `${diffDay} days ago`;
+
+  const diffWeeks = Math.floor(diffDay / 7);
+  if (diffWeeks === 1) return '1 week ago';
+  if (diffWeeks < 5) return `${diffWeeks} weeks ago`;
+
+  const diffMonths = Math.floor(diffDay / 30);
+  if (diffMonths === 1) return '1 month ago';
+  if (diffMonths < 12) return `${diffMonths} months ago`;
+
+  return new Date(timestamp).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function formatExactTime(timestamp) {
+  if (!timestamp) return '';
+  return new Date(timestamp).toLocaleString([], {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
 }
 
 function renderEmailsList(filter = '') {
@@ -429,26 +469,37 @@ function renderEmailsList(filter = '') {
     // Initials for avatar
     const namePart = item.email.split('@')[0] || '';
     const initial = namePart.substring(0, 2).toUpperCase();
+    const relTime = formatRelativeTime(item.lastUsed);
+    const exactTime = formatExactTime(item.lastUsed);
 
     card.innerHTML = `
       <div class="email-card-main">
         <div class="email-avatar" title="${item.email}">${initial}</div>
         <div class="email-details">
-          <span class="email-addr" title="${item.email}">${item.email}</span>
-          <div class="email-meta">
-            <span class="email-time">${formatRelativeTime(item.lastUsed)}</span>
-            <span class="email-count-badge">${item.count}x synced</span>
+          <div class="email-addr-row">
+            <span class="email-addr" title="${item.email}">${item.email}</span>
+            ${index === 0 ? '<span class="latest-pill">Latest</span>' : ''}
+          </div>
+          <div class="email-meta" title="Synced at: ${exactTime}">
+            <span class="email-time">
+              <svg viewBox="0 0 20 20" fill="currentColor" width="11" height="11" class="time-clock-icon">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
+              </svg>
+              ${relTime}
+            </span>
+            <span class="email-count-badge">${item.count || 1}x synced</span>
+            ${item.source ? `<span class="email-source-badge">${item.source}</span>` : ''}
           </div>
         </div>
       </div>
       <div class="email-actions">
-        <button class="btn-action-icon btn-copy-email" title="Copy email address" data-email="${item.email}">
+        <button class="btn-action-icon btn-copy-email" title="Copy email: ${item.email}" data-email="${item.email}" aria-label="Copy Email">
           <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
             <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
             <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
           </svg>
         </button>
-        <button class="btn-action-icon btn-delete-email" title="Delete from list" data-email="${item.email}">
+        <button class="btn-action-icon btn-delete-email" title="Delete email: ${item.email}" data-email="${item.email}" aria-label="Delete Email">
           <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
             <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
           </svg>
@@ -456,13 +507,28 @@ function renderEmailsList(filter = '') {
       </div>
     `;
 
-    // Copy event
+    // Copy event with visual feedback
     const copyBtn = card.querySelector('.btn-copy-email');
     copyBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       const mail = copyBtn.getAttribute('data-email');
       navigator.clipboard.writeText(mail).then(() => {
+        copyBtn.classList.add('btn-copied-success');
+        copyBtn.innerHTML = `
+          <svg viewBox="0 0 20 20" fill="#10B981" width="14" height="14">
+            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+          </svg>
+        `;
         showToast(`✓ Copied ${mail}!`);
+        setTimeout(() => {
+          copyBtn.classList.remove('btn-copied-success');
+          copyBtn.innerHTML = `
+            <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
+              <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+              <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
+            </svg>
+          `;
+        }, 1500);
       });
     });
 
