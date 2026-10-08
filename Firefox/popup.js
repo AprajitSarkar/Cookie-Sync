@@ -1,5 +1,5 @@
 /**
- * Cookie Sync - Universal & Outlook Session Migrator (v2.0.0)
+ * Cookie Sync - Universal & Outlook Session Migrator (v2.1.0)
  * Cross-Browser Extension (Chrome & Firefox)
  * By Aprajit Sarkar (https://github.com/AprajitSarkar)
  */
@@ -26,14 +26,17 @@ let currentActiveTab = null;
 let currentTabDomain = null;
 let currentBaseDomain = null;
 let isOutlookSessionActive = false;
+let detectedActiveEmail = null;
 let lastExportedSession = null;
 let scannedCookies = [];
+let trackedEmailsList = [];
 
 // Initialize Popup
 document.addEventListener('DOMContentLoaded', async () => {
   detectBrowser();
   setupTabs();
   setupEventHandlers();
+  await loadTrackedEmails();
   await checkActiveTab();
   await scanActiveCookies();
   autoCheckClipboardOnOpen();
@@ -56,7 +59,7 @@ function detectBrowser() {
   }
 }
 
-// Setup Navigation Tabs
+// Setup Navigation Tabs (4 Tabs)
 function setupTabs() {
   const tabButtons = document.querySelectorAll('.nav-tab');
   tabButtons.forEach(btn => {
@@ -80,6 +83,8 @@ function switchTab(targetId) {
 
   if (targetId === 'panel-inspect') {
     renderCookiesList();
+  } else if (targetId === 'panel-emails') {
+    renderEmailsList();
   }
 }
 
@@ -111,7 +116,6 @@ async function checkActiveTab() {
       currentActiveTab = tabs[0];
       const url = currentActiveTab.url || '';
 
-      // Check if it's a browser system tab
       if (/^(chrome|edge|about|moz-extension|chrome-extension):/i.test(url)) {
         statusCard.className = 'status-card';
         statusLabel.textContent = 'System / Empty Tab';
@@ -143,6 +147,9 @@ async function checkActiveTab() {
         statDomainsCount.textContent = 'Outlook 365';
         openOutlookBtn.style.display = 'none';
         switchTab('panel-export');
+        
+        // Try quick extraction of active account email
+        quickDetectActiveAccountEmail();
       } else {
         statusCard.className = 'status-card connected';
         const displayDomain = currentBaseDomain || currentTabDomain || 'Active Site';
@@ -173,6 +180,28 @@ function isMicrosoftDomain(domain) {
   if (!domain) return false;
   const d = domain.toLowerCase();
   return MICROSOFT_AUTH_DOMAINS.some(target => d.includes(target));
+}
+
+// Quick email detection to update UI preview
+async function quickDetectActiveAccountEmail() {
+  if (!currentActiveTab || !currentActiveTab.id) return;
+  try {
+    const res = await sendTabMessage(currentActiveTab.id, { action: "GET_STORAGE" });
+    if (res && res.accountEmail) {
+      updateActiveAccountEmailUI(res.accountEmail);
+    }
+  } catch (e) {}
+}
+
+function updateActiveAccountEmailUI(email) {
+  if (!email) return;
+  detectedActiveEmail = email.toLowerCase().trim();
+  const card = document.getElementById('active-account-card');
+  const label = document.getElementById('active-account-email');
+  if (card && label) {
+    label.textContent = detectedActiveEmail;
+    card.style.display = 'flex';
+  }
 }
 
 // Auto-check clipboard when popup opens
@@ -281,6 +310,21 @@ function setupEventHandlers() {
   document.getElementById('upload-file-btn').addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', handleFileUpload);
 
+  // Refresh Emails
+  document.getElementById('refresh-emails-btn').addEventListener('click', async () => {
+    await loadTrackedEmails();
+    renderEmailsList();
+    showToast('Accounts list refreshed!');
+  });
+
+  // Filter Emails
+  document.getElementById('emails-filter-input').addEventListener('input', (e) => {
+    renderEmailsList(e.target.value);
+  });
+
+  // Clear All Emails
+  document.getElementById('clear-emails-btn').addEventListener('click', handleClearAllEmails);
+
   // Inspect Refresh
   document.getElementById('refresh-inspect-btn').addEventListener('click', async () => {
     await scanActiveCookies();
@@ -295,6 +339,161 @@ function setupEventHandlers() {
 
   // Clear Cookies
   document.getElementById('clear-cookies-btn').addEventListener('click', handleClearActiveCookies);
+}
+
+// -------------------------------------------------------------
+// EMAILS MANAGEMENT (MRU: Most Recently Used Ordering)
+// -------------------------------------------------------------
+async function loadTrackedEmails() {
+  try {
+    const res = await getStorageData(['trackedEmails']);
+    trackedEmailsList = res.trackedEmails || [];
+    updateEmailsBadge();
+  } catch (e) {
+    trackedEmailsList = [];
+  }
+}
+
+async function recordTrackedEmail(email, source = "Outlook") {
+  if (!email || !email.includes('@')) return;
+  const cleanEmail = email.trim().toLowerCase();
+
+  await loadTrackedEmails();
+
+  // Find if already present
+  const existingIdx = trackedEmailsList.findIndex(item => item.email.toLowerCase() === cleanEmail);
+  let count = 1;
+
+  if (existingIdx !== -1) {
+    count = (trackedEmailsList[existingIdx].count || 1) + 1;
+    // Remove from current position
+    trackedEmailsList.splice(existingIdx, 1);
+  }
+
+  // Add to TOP (Index 0) - Most Recently Used
+  trackedEmailsList.unshift({
+    email: cleanEmail,
+    lastUsed: Date.now(),
+    count: count,
+    source: source
+  });
+
+  await setStorageData({ trackedEmails: trackedEmailsList });
+  updateEmailsBadge();
+  renderEmailsList();
+}
+
+function updateEmailsBadge() {
+  const badge = document.getElementById('emails-badge');
+  const countPill = document.getElementById('emails-count-pill');
+  const count = trackedEmailsList.length;
+
+  if (badge) {
+    badge.textContent = count;
+    badge.style.display = count > 0 ? 'inline-block' : 'none';
+  }
+  if (countPill) {
+    countPill.textContent = `${count} ${count === 1 ? 'Account' : 'Accounts'}`;
+  }
+}
+
+function formatRelativeTime(timestamp) {
+  if (!timestamp) return 'Recently';
+  const diffSec = Math.floor((Date.now() - timestamp) / 1000);
+  if (diffSec < 60) return 'Just now';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHour = Math.floor(diffMin / 60);
+  if (diffHour < 24) return `${diffHour}h ago`;
+  const diffDay = Math.floor(diffHour / 24);
+  if (diffDay < 7) return `${diffDay}d ago`;
+  return new Date(timestamp).toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+
+function renderEmailsList(filter = '') {
+  const listEl = document.getElementById('emails-list');
+  listEl.innerHTML = '';
+
+  const q = filter.trim().toLowerCase();
+  const filtered = trackedEmailsList.filter(item => !q || item.email.toLowerCase().includes(q));
+
+  if (!filtered.length) {
+    listEl.innerHTML = '<div class="empty-state">No matching account emails found.</div>';
+    return;
+  }
+
+  filtered.forEach((item, index) => {
+    const card = document.createElement('div');
+    card.className = 'email-card' + (index === 0 ? ' latest-item' : '');
+
+    // Initials for avatar
+    const namePart = item.email.split('@')[0] || '';
+    const initial = namePart.substring(0, 2).toUpperCase();
+
+    card.innerHTML = `
+      <div class="email-card-main">
+        <div class="email-avatar" title="${item.email}">${initial}</div>
+        <div class="email-details">
+          <span class="email-addr" title="${item.email}">${item.email}</span>
+          <div class="email-meta">
+            <span class="email-time">${formatRelativeTime(item.lastUsed)}</span>
+            <span class="email-count-badge">${item.count}x synced</span>
+          </div>
+        </div>
+      </div>
+      <div class="email-actions">
+        <button class="btn-action-icon btn-copy-email" title="Copy email address" data-email="${item.email}">
+          <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
+            <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+            <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
+          </svg>
+        </button>
+        <button class="btn-action-icon btn-delete-email" title="Delete from list" data-email="${item.email}">
+          <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
+            <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+          </svg>
+        </button>
+      </div>
+    `;
+
+    // Copy event
+    const copyBtn = card.querySelector('.btn-copy-email');
+    copyBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const mail = copyBtn.getAttribute('data-email');
+      navigator.clipboard.writeText(mail).then(() => {
+        showToast(`✓ Copied ${mail}!`);
+      });
+    });
+
+    // Delete event
+    const delBtn = card.querySelector('.btn-delete-email');
+    delBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const mail = delBtn.getAttribute('data-email');
+      await deleteTrackedEmail(mail);
+    });
+
+    listEl.appendChild(card);
+  });
+}
+
+async function deleteTrackedEmail(email) {
+  trackedEmailsList = trackedEmailsList.filter(item => item.email.toLowerCase() !== email.toLowerCase());
+  await setStorageData({ trackedEmails: trackedEmailsList });
+  updateEmailsBadge();
+  renderEmailsList();
+  showToast(`Removed ${email}`);
+}
+
+async function handleClearAllEmails() {
+  if (!trackedEmailsList.length) return;
+  if (!confirm('Are you sure you want to clear all tracked account emails?')) return;
+  trackedEmailsList = [];
+  await setStorageData({ trackedEmails: [] });
+  updateEmailsBadge();
+  renderEmailsList();
+  showToast('Email history cleared!');
 }
 
 // -------------------------------------------------------------
@@ -316,6 +515,16 @@ async function scanActiveCookies() {
               matched.push(c);
             }
           }
+        }
+      }
+
+      // Check cookies for authoritative Microsoft email (DefaultAnchorMailbox / SignInName)
+      const anchorCookie = matched.find(c => c.name === 'DefaultAnchorMailbox' || c.name === 'SignInName');
+      if (anchorCookie && anchorCookie.value && anchorCookie.value.includes('@')) {
+        const val = decodeURIComponent(anchorCookie.value);
+        const m = val.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+        if (m) {
+          updateActiveAccountEmailUI(m[0]);
         }
       }
     } else if (currentActiveTab && currentActiveTab.url) {
@@ -364,18 +573,27 @@ async function handleExportSession() {
 
     let storageData = { localStorage: {}, sessionStorage: {} };
     let sourceUrl = currentActiveTab ? currentActiveTab.url : 'https://outlook.live.com/mail/0/';
+    let accountEmail = detectedActiveEmail;
 
     if (currentActiveTab && currentActiveTab.id) {
+      // Method A: Content script messaging
       let gotStorage = false;
       try {
         const response = await sendTabMessage(currentActiveTab.id, { action: "GET_STORAGE" });
-        if (response && response.localStorage) {
-          storageData.localStorage = response.localStorage;
-          storageData.sessionStorage = response.sessionStorage || {};
-          gotStorage = true;
+        if (response) {
+          if (response.localStorage) {
+            storageData.localStorage = response.localStorage;
+            storageData.sessionStorage = response.sessionStorage || {};
+            gotStorage = true;
+          }
+          if (response.accountEmail) {
+            accountEmail = response.accountEmail;
+            updateActiveAccountEmailUI(accountEmail);
+          }
         }
       } catch (e) {}
 
+      // Method B: executeScript fallback
       if (!gotStorage) {
         try {
           const scriptRes = await executeScriptInTab(currentActiveTab.id, () => {
@@ -393,17 +611,32 @@ async function handleExportSession() {
                 ss[k] = sessionStorage.getItem(k);
               }
             } catch (e) {}
-            return { ls, ss, title: document.title };
+
+            let foundEmail = null;
+            const sec = document.querySelector('#mectrl_currentAccount_secondary, [id*="currentAccount_secondary"]');
+            if (sec && sec.textContent && sec.textContent.includes('@')) {
+              foundEmail = sec.textContent.trim().toLowerCase();
+            }
+            return { ls, ss, accountEmail: foundEmail, title: document.title };
           });
 
           if (scriptRes && scriptRes[0] && scriptRes[0].result) {
             storageData.localStorage = scriptRes[0].result.ls || {};
             storageData.sessionStorage = scriptRes[0].result.ss || {};
+            if (scriptRes[0].result.accountEmail && !accountEmail) {
+              accountEmail = scriptRes[0].result.accountEmail;
+              updateActiveAccountEmailUI(accountEmail);
+            }
           }
         } catch (err) {
           console.warn("Script execution fallback warning:", err);
         }
       }
+    }
+
+    // Record email in MRU tracked emails
+    if (accountEmail) {
+      await recordTrackedEmail(accountEmail, isOutlookSessionActive ? "Outlook" : (currentBaseDomain || "Universal"));
     }
 
     const lsKeysCount = Object.keys(storageData.localStorage).length;
@@ -414,9 +647,10 @@ async function handleExportSession() {
     const isFirefox = navigator.userAgent.toLowerCase().includes('firefox');
     const sessionPackage = {
       app: "CookieSync",
-      version: "2.0.0",
+      version: "2.1.0",
       type: isOutlookSessionActive ? "outlook" : "universal",
       exportedAt: new Date().toISOString(),
+      accountEmail: accountEmail || null,
       sourceBrowser: isFirefox ? "Firefox" : "Chrome",
       sourceUrl: sourceUrl,
       targetDomain: isOutlookSessionActive ? "live.com" : (currentBaseDomain || currentTabDomain),
@@ -444,8 +678,8 @@ async function handleExportSession() {
     document.getElementById('download-json-btn').disabled = false;
     document.getElementById('toggle-json-preview-btn').disabled = false;
 
-    const scopeName = isOutlookSessionActive ? 'Outlook' : (currentBaseDomain || 'active page');
-    showToast(`✓ Copied ${scannedCookies.length} cookies & ${totalStorage} tokens for ${scopeName}!`);
+    const scopeDesc = accountEmail ? `(${accountEmail})` : (isOutlookSessionActive ? 'Outlook' : (currentBaseDomain || 'active page'));
+    showToast(`✓ Copied ${scannedCookies.length} cookies for ${scopeDesc}!`);
     btnLabel.textContent = 'Session Copied!';
     setTimeout(() => {
       btnLabel.textContent = originalLabel;
@@ -462,7 +696,7 @@ async function handleExportSession() {
 
 function handleDownloadJson() {
   if (!lastExportedSession) return;
-  const domainSlug = (lastExportedSession.targetDomain || 'session').replace(/[^a-z0-9]/gi, '_');
+  const domainSlug = (lastExportedSession.accountEmail || lastExportedSession.targetDomain || 'session').replace(/[^a-z0-9]/gi, '_');
   const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(lastExportedSession, null, 2));
   const downloadAnchor = document.createElement('a');
   downloadAnchor.setAttribute("href", dataStr);
@@ -564,6 +798,20 @@ async function executeImport(jsonString) {
     const isOutlook = sessionData.type === 'outlook' || (sessionData.cookies && sessionData.cookies.some(c => isMicrosoftDomain(c.domain)));
     const targetDomain = sessionData.targetDomain || (isOutlook ? 'live.com' : (currentBaseDomain || ''));
 
+    // Record imported account email into MRU list
+    let importedEmail = sessionData.accountEmail;
+    if (!importedEmail && sessionData.cookies) {
+      const anchorCookie = sessionData.cookies.find(c => c.name === 'DefaultAnchorMailbox' || c.name === 'SignInName');
+      if (anchorCookie && anchorCookie.value && anchorCookie.value.includes('@')) {
+        const val = decodeURIComponent(anchorCookie.value);
+        const m = val.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+        if (m) importedEmail = m[0];
+      }
+    }
+    if (importedEmail) {
+      await recordTrackedEmail(importedEmail, isOutlook ? "Outlook Import" : "Universal Import");
+    }
+
     // Step 1: Pre-register storage in extension storage for document_start injection
     const storageApi = (typeof browser !== 'undefined' && browser.storage) ? browser.storage.local : chrome.storage?.local;
     if (storageApi && sessionData.storage) {
@@ -576,7 +824,7 @@ async function executeImport(jsonString) {
       });
     }
 
-    // Step 2: STRICT USER REQUIREMENT: Purge existing cookies and data of the target website first!
+    // Step 2: Clear existing cookies and storage first
     progressMsg.textContent = `Purging existing cookies and data for ${targetDomain || 'target site'}...`;
     progressFill.style.width = '25%';
 
@@ -586,7 +834,6 @@ async function executeImport(jsonString) {
       await purgeDomainCookiesInternal(targetDomain);
     }
 
-    // Also clear open tab's localStorage & sessionStorage if currently on that site
     if (currentActiveTab && currentActiveTab.id) {
       try {
         await sendTabMessage(currentActiveTab.id, { action: "CLEAR_PAGE_DATA" });
@@ -622,7 +869,7 @@ async function executeImport(jsonString) {
     }
 
     progressFill.style.width = '95%';
-    progressMsg.textContent = `Launching session for ${targetDomain || 'target'}...`;
+    progressMsg.textContent = `Launching session for ${importedEmail || targetDomain || 'target'}...`;
 
     let matchPattern = "*://*." + (targetDomain || 'live.com') + "/*";
     if (isOutlook) matchPattern = "*://*.live.com/*";
@@ -644,7 +891,8 @@ async function executeImport(jsonString) {
       progressMsg.textContent = 'Session opened & authenticated!';
     }
 
-    showToast(`✓ Logged in! ${successCount} cookies applied.`);
+    const emailNotice = importedEmail ? ` (${importedEmail})` : '';
+    showToast(`✓ Logged in${emailNotice}! ${successCount} cookies applied.`);
 
     setTimeout(() => {
       progressCard.style.display = 'none';
@@ -875,6 +1123,28 @@ function updateTab(tabId, updateProps) {
   return new Promise((resolve) => {
     const tabsApi = (typeof browser !== 'undefined' && browser.tabs) ? browser.tabs : chrome.tabs;
     tabsApi.update(tabId, updateProps, (tab) => resolve(tab));
+  });
+}
+
+function getStorageData(keys) {
+  return new Promise((resolve) => {
+    const storageApi = (typeof browser !== 'undefined' && browser.storage) ? browser.storage.local : chrome.storage?.local;
+    if (storageApi) {
+      storageApi.get(keys, (res) => resolve(res || {}));
+    } else {
+      resolve({});
+    }
+  });
+}
+
+function setStorageData(data) {
+  return new Promise((resolve) => {
+    const storageApi = (typeof browser !== 'undefined' && browser.storage) ? browser.storage.local : chrome.storage?.local;
+    if (storageApi) {
+      storageApi.set(data, () => resolve());
+    } else {
+      resolve();
+    }
   });
 }
 
