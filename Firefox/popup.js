@@ -450,15 +450,76 @@ function formatExactTime(timestamp) {
   });
 }
 
+function createCheckmarkSvg() {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 20 20');
+  svg.setAttribute('fill', '#10B981');
+  svg.setAttribute('width', '14');
+  svg.setAttribute('height', '14');
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('fill-rule', 'evenodd');
+  path.setAttribute('d', 'M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z');
+  path.setAttribute('clip-rule', 'evenodd');
+  svg.appendChild(path);
+  return svg;
+}
+
+function createCopyIconSvg() {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 20 20');
+  svg.setAttribute('fill', 'currentColor');
+  svg.setAttribute('width', '14');
+  svg.setAttribute('height', '14');
+  const p1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  p1.setAttribute('d', 'M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z');
+  const p2 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  p2.setAttribute('d', 'M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z');
+  svg.appendChild(p1);
+  svg.appendChild(p2);
+  return svg;
+}
+
+function createTrashIconSvg() {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 20 20');
+  svg.setAttribute('fill', 'currentColor');
+  svg.setAttribute('width', '14');
+  svg.setAttribute('height', '14');
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('fill-rule', 'evenodd');
+  path.setAttribute('d', 'M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z');
+  path.setAttribute('clip-rule', 'evenodd');
+  svg.appendChild(path);
+  return svg;
+}
+
+function createClockIconSvg() {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 20 20');
+  svg.setAttribute('fill', 'currentColor');
+  svg.setAttribute('width', '11');
+  svg.setAttribute('height', '11');
+  svg.setAttribute('class', 'time-clock-icon');
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('fill-rule', 'evenodd');
+  path.setAttribute('d', 'M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z');
+  path.setAttribute('clip-rule', 'evenodd');
+  svg.appendChild(path);
+  return svg;
+}
+
 function renderEmailsList(filter = '') {
   const listEl = document.getElementById('emails-list');
-  listEl.innerHTML = '';
+  listEl.textContent = '';
 
   const q = filter.trim().toLowerCase();
   const filtered = trackedEmailsList.filter(item => !q || item.email.toLowerCase().includes(q));
 
   if (!filtered.length) {
-    listEl.innerHTML = '<div class="empty-state">No matching account emails found.</div>';
+    const emptyState = document.createElement('div');
+    emptyState.className = 'empty-state';
+    emptyState.textContent = 'No matching account emails found.';
+    listEl.appendChild(emptyState);
     return;
   }
 
@@ -472,68 +533,105 @@ function renderEmailsList(filter = '') {
     const relTime = formatRelativeTime(item.lastUsed);
     const exactTime = formatExactTime(item.lastUsed);
 
-    card.innerHTML = `
-      <div class="email-card-main">
-        <div class="email-avatar" title="${item.email}">${initial}</div>
-        <div class="email-details">
-          <div class="email-addr-row">
-            <span class="email-addr" title="${item.email}">${item.email}</span>
-            ${index === 0 ? '<span class="latest-pill">Latest</span>' : ''}
-          </div>
-          <div class="email-meta" title="Synced at: ${exactTime}">
-            <span class="email-time">
-              <svg viewBox="0 0 20 20" fill="currentColor" width="11" height="11" class="time-clock-icon">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd" />
-              </svg>
-              ${relTime}
-            </span>
-            <span class="email-count-badge">${item.count || 1}x synced</span>
-            ${item.source ? `<span class="email-source-badge">${item.source}</span>` : ''}
-          </div>
-        </div>
-      </div>
-      <div class="email-actions">
-        <button class="btn-action-icon btn-copy-email" title="Copy email: ${item.email}" data-email="${item.email}" aria-label="Copy Email">
-          <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
-            <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
-            <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
-          </svg>
-        </button>
-        <button class="btn-action-icon btn-delete-email" title="Delete email: ${item.email}" data-email="${item.email}" aria-label="Delete Email">
-          <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
-            <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
-          </svg>
-        </button>
-      </div>
-    `;
+    // Left main card section
+    const mainDiv = document.createElement('div');
+    mainDiv.className = 'email-card-main';
 
-    // Copy event with visual feedback
-    const copyBtn = card.querySelector('.btn-copy-email');
+    const avatar = document.createElement('div');
+    avatar.className = 'email-avatar';
+    avatar.title = item.email;
+    avatar.textContent = initial;
+
+    const details = document.createElement('div');
+    details.className = 'email-details';
+
+    const addrRow = document.createElement('div');
+    addrRow.className = 'email-addr-row';
+
+    const addrSpan = document.createElement('span');
+    addrSpan.className = 'email-addr';
+    addrSpan.title = item.email;
+    addrSpan.textContent = item.email;
+    addrRow.appendChild(addrSpan);
+
+    if (index === 0) {
+      const latestPill = document.createElement('span');
+      latestPill.className = 'latest-pill';
+      latestPill.textContent = 'Latest';
+      addrRow.appendChild(latestPill);
+    }
+
+    const meta = document.createElement('div');
+    meta.className = 'email-meta';
+    meta.title = `Synced at: ${exactTime}`;
+
+    const timeSpan = document.createElement('span');
+    timeSpan.className = 'email-time';
+    timeSpan.appendChild(createClockIconSvg());
+    timeSpan.appendChild(document.createTextNode(' ' + relTime));
+
+    const countBadge = document.createElement('span');
+    countBadge.className = 'email-count-badge';
+    countBadge.textContent = `${item.count || 1}x synced`;
+
+    meta.appendChild(timeSpan);
+    meta.appendChild(countBadge);
+
+    if (item.source) {
+      const sourceBadge = document.createElement('span');
+      sourceBadge.className = 'email-source-badge';
+      sourceBadge.textContent = item.source;
+      meta.appendChild(sourceBadge);
+    }
+
+    details.appendChild(addrRow);
+    details.appendChild(meta);
+
+    mainDiv.appendChild(avatar);
+    mainDiv.appendChild(details);
+
+    // Actions
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'email-actions';
+
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'btn-action-icon btn-copy-email';
+    copyBtn.title = `Copy email: ${item.email}`;
+    copyBtn.setAttribute('data-email', item.email);
+    copyBtn.setAttribute('aria-label', 'Copy Email');
+    copyBtn.appendChild(createCopyIconSvg());
+
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn-action-icon btn-delete-email';
+    delBtn.title = `Delete email: ${item.email}`;
+    delBtn.setAttribute('data-email', item.email);
+    delBtn.setAttribute('aria-label', 'Delete Email');
+    delBtn.appendChild(createTrashIconSvg());
+
+    actionsDiv.appendChild(copyBtn);
+    actionsDiv.appendChild(delBtn);
+
+    card.appendChild(mainDiv);
+    card.appendChild(actionsDiv);
+
+    // Copy event with safe SVG checkmark feedback
     copyBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       const mail = copyBtn.getAttribute('data-email');
       navigator.clipboard.writeText(mail).then(() => {
         copyBtn.classList.add('btn-copied-success');
-        copyBtn.innerHTML = `
-          <svg viewBox="0 0 20 20" fill="#10B981" width="14" height="14">
-            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-          </svg>
-        `;
+        copyBtn.textContent = '';
+        copyBtn.appendChild(createCheckmarkSvg());
         showToast(`✓ Copied ${mail}!`);
         setTimeout(() => {
           copyBtn.classList.remove('btn-copied-success');
-          copyBtn.innerHTML = `
-            <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
-              <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
-              <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
-            </svg>
-          `;
+          copyBtn.textContent = '';
+          copyBtn.appendChild(createCopyIconSvg());
         }, 1500);
       });
     });
 
     // Delete event
-    const delBtn = card.querySelector('.btn-delete-email');
     delBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
       const mail = delBtn.getAttribute('data-email');
@@ -1101,23 +1199,35 @@ async function handleClearActiveCookies() {
 // -------------------------------------------------------------
 function renderCookiesList(filter = '') {
   const listEl = document.getElementById('cookie-list');
-  listEl.innerHTML = '';
+  listEl.textContent = '';
 
   const q = filter.trim().toLowerCase();
   const filtered = scannedCookies.filter(c => !q || c.name.toLowerCase().includes(q) || c.domain.toLowerCase().includes(q));
 
   if (!filtered.length) {
-    listEl.innerHTML = '<div class="empty-state">No matching cookies found.</div>';
+    const emptyState = document.createElement('div');
+    emptyState.className = 'empty-state';
+    emptyState.textContent = 'No matching cookies found.';
+    listEl.appendChild(emptyState);
     return;
   }
 
   filtered.slice(0, 100).forEach(c => {
     const row = document.createElement('div');
     row.className = 'cookie-row';
-    row.innerHTML = `
-      <span class="cookie-name" title="${c.name}">${c.name}</span>
-      <span class="cookie-domain" title="${c.domain}">${c.domain}</span>
-    `;
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'cookie-name';
+    nameSpan.title = c.name;
+    nameSpan.textContent = c.name;
+
+    const domainSpan = document.createElement('span');
+    domainSpan.className = 'cookie-domain';
+    domainSpan.title = c.domain;
+    domainSpan.textContent = c.domain;
+
+    row.appendChild(nameSpan);
+    row.appendChild(domainSpan);
     listEl.appendChild(row);
   });
 }
