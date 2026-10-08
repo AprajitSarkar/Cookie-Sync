@@ -1,0 +1,16 @@
+# Operating System Files
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Temporary files & session exports
+*.tmp
+*.log
+*.sqlite
+cookie_sync_*_*.json
+outlook_session_*.json
+
+# Node & IDE
+node_modules/
+.vscode/
+.idea/

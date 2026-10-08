@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cookie Sync</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="app-container" id="app-root">
+    <!-- Top Header -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-logo-container">
+          <svg class="brand-icon" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="32" height="32" rx="8" fill="url(#cookieBrandGrad)"/>
+            <!-- Cookie / Sync icon design -->
+            <circle cx="16" cy="16" r="8.5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-dasharray="28 14"/>
+            <path d="M16 4.5L18.5 7.5L13.5 7.5Z" fill="white"/>
+            <path d="M16 27.5L13.5 24.5L18.5 24.5Z" fill="white"/>
+            <circle cx="13" cy="14" r="1.5" fill="white"/>
+            <circle cx="19" cy="15" r="1.2" fill="white"/>
+            <circle cx="15" cy="19" r="1.3" fill="white"/>
+            <defs>
+              <linearGradient id="cookieBrandGrad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#0284C7"/>
+                <stop offset="0.5" stop-color="#2563EB"/>
+                <stop offset="1" stop-color="#7C3AED"/>
+              </linearGradient>
+            </defs>
+          </svg>
+          <div class="sync-pulse-dot" id="sync-pulse-dot" title="Ready"></div>
+        </div>
+        <div class="brand-text">
+          <h1 class="brand-title">Cookie Sync</h1>
+          <p class="brand-subtitle">Universal & Outlook Session Migrator</p>
+        </div>
+      </div>
+      <div class="header-badges">
+        <span class="badge browser-badge" id="browser-badge">Detecting...</span>
+      </div>
+    </header>
+
+    <!-- Active Tab & Mode Pill -->
+    <div class="status-card" id="status-card">
+      <div class="status-indicator-dot" id="status-indicator-dot"></div>
+      <div class="status-info">
+        <div class="status-header-line">
+          <span class="status-label" id="status-label">Detecting active website...</span>
+          <span class="mode-tag" id="mode-tag">Universal</span>
+        </div>
+        <span class="status-sub" id="status-sub">Ready to capture or migrate session</span>
+      </div>
+      <button class="status-action-btn" id="open-outlook-btn" title="Open Outlook Mail" style="display: none;">
+        Outlook
+      </button>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs" role="tablist">
+      <button class="nav-tab active" id="tab-export-btn" role="tab" aria-selected="true" data-target="panel-export">
+        <svg class="tab-icon" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
+        </svg>
+        <span>Export</span>
+      </button>
+      <button class="nav-tab" id="tab-import-btn" role="tab" aria-selected="false" data-target="panel-import">
+        <svg class="tab-icon" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+        </svg>
+        <span>Import</span>
+      </button>
+      <button class="nav-tab" id="tab-inspect-btn" role="tab" aria-selected="false" data-target="panel-inspect">
+        <svg class="tab-icon" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+          <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd" />
+        </svg>
+        <span>Inspect</span>
+      </button>
+    </nav>
+
+    <!-- PANEL 1: EXPORT (Copy Session) -->
+    <section class="tab-panel active" id="panel-export" role="tabpanel">
+      <div class="panel-content">
+        <div class="instruction-box">
+          <div class="instruction-step">1</div>
+          <div class="instruction-text" id="export-instruction-text">
+            Log in to <strong>Outlook</strong> or any website in this browser, then click below to copy all cookies, tokens & storage.
+          </div>
+        </div>
+
+        <!-- Main Glow Export Button -->
+        <button class="btn btn-primary" id="export-session-btn">
+          <div class="btn-shine"></div>
+          <svg class="btn-icon" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
+            <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z" />
+          </svg>
+          <span id="export-btn-label">Copy Session to Clipboard</span>
+        </button>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid" id="export-stats-grid">
+          <div class="stat-card">
+            <span class="stat-value" id="stat-cookies-count">-</span>
+            <span class="stat-title">Cookies</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-value" id="stat-storage-count">-</span>
+            <span class="stat-title">Storage Keys</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-value stat-domain-val" id="stat-domains-count">-</span>
+            <span class="stat-title">Target Scope</span>
+          </div>
+        </div>
+
+        <!-- Export Actions Row -->
+        <div class="export-actions">
+          <button class="btn btn-secondary btn-sm" id="download-json-btn" disabled>
+            <svg class="btn-sm-icon" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" />
+            </svg>
+            Save File
+          </button>
+          <button class="btn btn-secondary btn-sm" id="toggle-json-preview-btn" disabled>
+            View Payload
+          </button>
+        </div>
+
+        <!-- Hidden Raw JSON Box -->
+        <div class="raw-preview-box" id="raw-preview-box" style="display: none;">
+          <div class="raw-preview-header">
+            <span>Session Payload (JSON)</span>
+            <button class="btn-link" id="copy-preview-btn">Copy</button>
+          </div>
+          <textarea class="raw-textarea" id="export-json-textarea" readonly></textarea>
+        </div>
+      </div>
+    </section>
+
+    <!-- PANEL 2: IMPORT (Paste Session) -->
+    <section class="tab-panel" id="panel-import" role="tabpanel">
+      <div class="panel-content">
+        <div class="instruction-box">
+          <div class="instruction-step">2</div>
+          <div class="instruction-text">
+            Paste your copied session payload. Old cookies for that site are automatically purged before injecting the new session.
+          </div>
+        </div>
+
+        <!-- Main Glow Import Button -->
+        <button class="btn btn-success" id="paste-and-login-btn">
+          <div class="btn-shine"></div>
+          <svg class="btn-icon" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+            <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm9.707 5.707a1 1 0 00-1.414-1.414L9 12.586l-1.293-1.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+          </svg>
+          <span id="import-btn-label">Paste from Clipboard & Login</span>
+        </button>
+
+        <!-- Import Textarea Container -->
+        <div class="import-area">
+          <div class="import-area-header">
+            <label for="import-session-textarea">Or Paste JSON Manually:</label>
+            <div class="import-area-actions">
+              <button class="btn-link" id="quick-paste-btn">Paste</button>
+              <button class="btn-link" id="upload-file-btn">Upload File</button>
+              <input type="file" id="file-input" accept=".json" style="display: none;">
+            </div>
+          </div>
+          <textarea class="import-textarea" id="import-session-textarea" placeholder="Press Ctrl+V to paste your exported session package here..."></textarea>
+        </div>
+
+        <button class="btn btn-secondary btn-sm full-width" id="manual-import-btn">
+          Inject Pasted Session
+        </button>
+
+        <!-- Import Progress Card -->
+        <div class="import-progress-card" id="import-progress-card" style="display: none;">
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" id="progress-bar-fill"></div>
+          </div>
+          <div class="progress-message" id="progress-message">Injecting session...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PANEL 3: INSPECT & CLEAN -->
+    <section class="tab-panel" id="panel-inspect" role="tabpanel">
+      <div class="panel-content">
+        <div class="inspect-header">
+          <div class="inspect-summary" id="inspect-summary">Scanning active cookies...</div>
+          <button class="btn btn-secondary btn-sm" id="refresh-inspect-btn">Refresh</button>
+        </div>
+
+        <!-- Filter bar -->
+        <div class="filter-bar">
+          <input type="text" class="filter-input" id="cookie-filter-input" placeholder="Filter cookies by name or domain...">
+        </div>
+
+        <!-- Cookies List Container -->
+        <div class="cookie-list" id="cookie-list">
+          <div class="empty-state">No cookies scanned yet. Click Refresh.</div>
+        </div>
+
+        <!-- Danger Zone -->
+        <div class="danger-zone">
+          <div class="danger-info">
+            <span class="danger-title" id="danger-title">Purge Cookies</span>
+            <span class="danger-desc" id="danger-desc">Clears cookies for the active domain from this browser</span>
+          </div>
+          <button class="btn btn-danger btn-sm" id="clear-cookies-btn">Clear All</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast">
+      <div class="toast-icon" id="toast-icon">✓</div>
+      <div class="toast-msg" id="toast-msg">Session copied!</div>
+    </div>
+
+    <!-- Footer - By Aprajit Sarkar with GitHub Icon -->
+    <footer class="app-footer">
+      <a href="https://github.com/AprajitSarkar" target="_blank" rel="noopener noreferrer" class="footer-author-link" id="footer-author-link">
+        <svg class="github-icon" viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
+          <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+        </svg>
+        <span>By Aprajit Sarkar</span>
+      </a>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
