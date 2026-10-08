@@ -1,27 +1,18 @@
-# Cookie Sync - Packaging Script for Chrome & Firefox
+# Cookie Sync - Packaging Script for Chrome & Firefox (POSIX / AMO compliant)
 $ErrorActionPreference = "Stop"
 
 $baseDir = $PSScriptRoot
 if (-not $baseDir) { $baseDir = Get-Location }
 
-$chromeDir = Join-Path $baseDir "Chrome"
-$firefoxDir = Join-Path $baseDir "Firefox"
+$pyScript = Join-Path $baseDir "package_amo.py"
+$pythonExe = "C:\Users\Aprajit\AppData\Local\Python\pythoncore-3.14-64\python.exe"
 
-$chromeZip = Join-Path $baseDir "Cookie-Sync-Chrome.zip"
-$firefoxZip = Join-Path $baseDir "Cookie-Sync-Firefox.zip"
+Write-Host "Packaging Cookie Sync Extensions (POSIX / AMO Compliant)..." -ForegroundColor Cyan
 
-Write-Host "Packaging Cookie Sync Extensions..." -ForegroundColor Cyan
+if (Test-Path $pythonExe) {
+    & $pythonExe "$pyScript"
+} else {
+    python "$pyScript"
+}
 
-# 1. Package Chrome Extension
-if (Test-Path $chromeZip) { Remove-Item $chromeZip -Force }
-Write-Host "Creating Chrome Web Store package: $chromeZip" -ForegroundColor Yellow
-Compress-Archive -Path "$chromeDir\*" -DestinationPath $chromeZip -Force
-Write-Host "Chrome extension packaged successfully!" -ForegroundColor Green
-
-# 2. Package Firefox Extension (AMO upload format)
-if (Test-Path $firefoxZip) { Remove-Item $firefoxZip -Force }
-Write-Host "Creating Firefox Add-ons (AMO) package: $firefoxZip" -ForegroundColor Yellow
-Compress-Archive -Path "$firefoxDir\*" -DestinationPath $firefoxZip -Force
-Write-Host "Firefox extension packaged successfully!" -ForegroundColor Green
-
-Write-Host "All packages ready for deployment!" -ForegroundColor Cyan
+Write-Host "All packages ready for deployment!" -ForegroundColor Green
