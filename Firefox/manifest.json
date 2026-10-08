@@ -51,7 +51,7 @@
   ],
   "browser_specific_settings": {
     "gecko": {
-      "id": "cookie-sync@aprajitsarkar.com",
+      "id": "cookie-sync@aprajit.dev",
       "strict_min_version": "140.0",
       "data_collection_permissions": {
         "required": [
